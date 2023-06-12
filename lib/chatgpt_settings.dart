@@ -1,8 +1,9 @@
+import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer';
 
 class ChatGPTApiKeyForm extends StatefulWidget {
-  //FIXME : do we need this super ?
   const ChatGPTApiKeyForm({super.key});
 
   @override
@@ -14,15 +15,54 @@ class ChatGPTApiKeyForm extends StatefulWidget {
 // Create a corresponding State class.
 // This class holds data related to the form.
 class ChatGPTApiKeyFormState extends State<ChatGPTApiKeyForm> {
-  // Create a global key that uniquely identifies the Form widget
-  // and allows validation of the form.
-  //
-  // Note: This is a GlobalKey<FormState>,
-  // not a GlobalKey<MyCustomFormState>.
+
+  bool _isChecking = false;
+  dynamic _validationMsg;
+  final myController = TextEditingController();
+
+
+  Future<dynamic> checkChatGPTApiKey(chatGPTApiKeyInput) async {
+    _validationMsg = null;
+    setState(() {});
+    //do all sync validation
+    if (chatGPTApiKeyInput.isEmpty) {
+      _validationMsg = "chatGPT api key is required";
+      setState(() {});
+      return;
+    }
+
+    _isChecking = true;
+    setState(() {});
+
+    final request = ChatCompleteText(messages: [
+      Map.of({"role": "user", "content": 'Hello!'})
+    ], maxToken: 200, model: GptTurboChatModel());
+
+    openAI = OpenAI.instance.build(token: chatGPTApiKeyInput,baseOption: HttpSetup(receiveTimeout: const Duration(seconds: 5)),enableLog: true);
+    openAI?.onChatCompletion(request: request).catchError((err){
+        if(err is OpenAIAuthError){
+          _validationMsg = "Authentication error, please check your chatGPT api key";
+        }
+        else if(err is OpenAIRateLimitError){
+          _validationMsg = "Rate limit is reach for the given chatGPT api key";
+        }
+        else if(err is OpenAIServerError){
+          _validationMsg = "Server return an error when it was call with this chatGPT api key";
+        }
+        else {
+          _validationMsg = "Error while validating chatGPT api key";
+        }
+        log('$_validationMsg, error detail: ${err.runtimeType} : $err');
+        return err;
+      });
+    _isChecking = false;
+  }
+
+
   final _formKey = GlobalKey<FormState>();
   String _chatGPTAPIKey = '';
   bool textLoaded = false;
-  final myController = TextEditingController();
+  OpenAI? openAI;
 
 
 
@@ -65,23 +105,25 @@ class ChatGPTApiKeyFormState extends State<ChatGPTApiKeyForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-          textLoaded ?
-            TextFormField(
-              controller: myController,
-              decoration: const InputDecoration(
-                hintText: "Your Chat GPT API Key"
-              ), 
-              // The validator receives the text that the user has entered.
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your Chat GPT API Key';
-                }
-                return null;
+          Focus(
+            child: 
+              textLoaded ?
+                TextFormField(
+                  controller: myController,
+                  decoration: InputDecoration(
+                    hintText: "Your Chat GPT API Key",
+                    suffixIcon: _isChecking ? Transform.scale(scale: 0.5, child: const CircularProgressIndicator()) : null,
+                  ),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  validator: (val) => _validationMsg,
+                )
+              : 
+                const CircularProgressIndicator()
+              ,
+              onFocusChange: (hasFocus) {
+                if (!hasFocus) checkChatGPTApiKey(myController.text);
               },
-            )
-          : 
-            const CircularProgressIndicator()
-          ,
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
             child: ElevatedButton(
