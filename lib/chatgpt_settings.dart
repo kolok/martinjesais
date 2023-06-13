@@ -2,6 +2,7 @@ import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer';
+import 'main.dart';
 
 class ChatGPTApiKeyForm extends StatefulWidget {
   const ChatGPTApiKeyForm({super.key});
@@ -36,10 +37,11 @@ class ChatGPTApiKeyFormState extends State<ChatGPTApiKeyForm> {
 
     final request = ChatCompleteText(messages: [
       Map.of({"role": "user", "content": 'Hello!'})
-    ], maxToken: 200, model: GptTurboChatModel());
+    ], maxToken: 1, model: GptTurboChatModel());
 
+    OpenAI openAI;
     openAI = OpenAI.instance.build(token: chatGPTApiKeyInput,baseOption: HttpSetup(receiveTimeout: const Duration(seconds: 5)),enableLog: true);
-    openAI?.onChatCompletion(request: request).catchError((err){
+    openAI.onChatCompletion(request: request).catchError((err){
         if(err is OpenAIAuthError){
           _validationMsg = "Authentication error, please check your chatGPT api key";
         }
@@ -62,7 +64,6 @@ class ChatGPTApiKeyFormState extends State<ChatGPTApiKeyForm> {
   final _formKey = GlobalKey<FormState>();
   String _chatGPTAPIKey = '';
   bool textLoaded = false;
-  OpenAI? openAI;
 
 
 
@@ -74,6 +75,7 @@ class ChatGPTApiKeyFormState extends State<ChatGPTApiKeyForm> {
     initChatGPTAPIKey();
     textLoaded = true;
   }
+
   Future<void> initChatGPTAPIKey() async {
     final prefs = await SharedPreferences.getInstance();
     _chatGPTAPIKey = prefs.getString('chat_gtp_api_key') ?? '';
@@ -134,23 +136,29 @@ class ChatGPTApiKeyFormState extends State<ChatGPTApiKeyForm> {
                   // you'd often call a server or save the information in a database.
                   await _setChatGPTAPIKey(myController.text);
 
-
-                  // ignore: use_build_context_synchronously
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        // Retrieve the text the that user has entered by using the
-                        // TextEditingController.
-                        content: Text(_chatGPTAPIKey),
-                      );
-                    },
+                  // Navigator.of(context).push(
+                  //   MaterialPageRoute(
+                  //     builder: (context) => const ,
+                  //   ),
+                  // );
+                  if (!context.mounted) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MyChat()),
                   );
 
-                  // ignore: use_build_context_synchronously
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(_chatGPTAPIKey)),
-                  );
+                  // // ignore: use_build_context_synchronously
+                  // showDialog(
+                  //   context: context,
+                  //   builder: (context) {
+                  //     return AlertDialog(
+                  //       // Retrieve the text the that user has entered by using the
+                  //       // TextEditingController.
+                  //       content: Text(_chatGPTAPIKey),
+                  //     );
+                  //   },
+                  // );
+
                 }
               },
               child: const Text('Submit'),
